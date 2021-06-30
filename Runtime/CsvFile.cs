@@ -8,12 +8,10 @@ namespace FramePush.Csv
     public class CsvFile : ScriptableObject
     {
         public TextAsset source;
+        public bool containsHeaders;
 
-        public string[][] Records
-        {
-            get;
-            private set;
-        }
+        public string[][] Records { get; private set; }
+        public string[] Headers { get; private set; }
 
         private enum ParseState
         {
@@ -26,15 +24,15 @@ namespace FramePush.Csv
 
         public static List<string[]> Parse(string text)
         {
-            List<string[]> records = new List<string[]>();
+            var records = new List<string[]>();
             List<string> record = null;
-            StringBuilder field = new StringBuilder();
+            var field = new StringBuilder();
 
             ParseState state = ParseState.EndRecord;
 
             void EndField()
             {
-                record.Add(field.ToString());
+                record?.Add(field.ToString());
                 field.Clear();
                 state = ParseState.EndField;
             }
@@ -42,7 +40,7 @@ namespace FramePush.Csv
             void EndRecord()
             {
                 EndField();
-                records.Add(record.ToArray());
+                records.Add(record?.ToArray());
                 record = null;
                 state = ParseState.EndRecord;
             }
@@ -138,9 +136,31 @@ namespace FramePush.Csv
             return records;
         }
 
+        public static (List<string[]> records, string[] headers) Parse(string text, bool containsHeaders)
+        {
+            var records = Parse(text);
+
+            if (!containsHeaders)
+            {
+                return (records, null);
+            }
+
+            var headers = records[0];
+            records.RemoveAt(0);
+            return (records, headers);
+        }
+
         public void Parse()
         {
-            Records = Parse(source.text).ToArray();
+            var rec = Parse(source.text);
+
+            if (containsHeaders)
+            {
+                Headers = rec[0];
+                rec.RemoveAt(0);
+            }
+
+            Records = rec.ToArray();
         }
     }
 }
