@@ -1,8 +1,9 @@
 {
   "name": "com.framepush.unity-csv-asset",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "displayName": "Unity CSV Asset",
   "description": "Provides an asset type to work more easily with CSV files.",
   "unity": "2020.1",
-  "license": "MIT"
+  "license": "MIT",
+  "type": "library"
 }

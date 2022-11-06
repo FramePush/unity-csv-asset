@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
@@ -20,6 +21,7 @@ namespace FramePush.Csv
             EnclosedField,
             EndField,
             EnclosedEscape,
+            EndingRecord,
         }
 
         public static List<string[]> Parse(string text)
@@ -28,7 +30,7 @@ namespace FramePush.Csv
             List<string> record = null;
             var field = new StringBuilder();
 
-            ParseState state = ParseState.EndRecord;
+            var state = ParseState.EndRecord;
 
             void EndField()
             {
@@ -52,6 +54,9 @@ namespace FramePush.Csv
                     case ',':
                         EndField();
                         break;
+                    case '\r':
+                        state = ParseState.EndingRecord;
+                        break;
                     case '\n':
                         EndRecord();
                         break;
@@ -66,6 +71,9 @@ namespace FramePush.Csv
                 switch (c)
                 {
                     case '"':
+                        // Double quote is the escape character inside a field enclosed in double quotes
+                        // It could also end the field
+                        // Next char is either escaped char or end of field
                         state = ParseState.EnclosedEscape;
                         break;
                     default:
@@ -74,20 +82,13 @@ namespace FramePush.Csv
                 }
             }
 
-            void ParseEnclosedEscape(char c)
+            void ParseEscaped(char c)
             {
-                switch (c)
+                ParseField(c);
+                if (c == '"')
                 {
-                    case ',':
-                        EndField();
-                        break;
-                    case '\n':
-                        EndRecord();
-                        break;
-                    case '"':
-                        field.Append(c);
-                        state = ParseState.EnclosedField;
-                        break;
+                    // Double quote is the only escaped character
+                    state = ParseState.EnclosedField;
                 }
             }
 
@@ -123,8 +124,17 @@ namespace FramePush.Csv
                         ParseEnclosedField(c);
                         break;
                     case ParseState.EnclosedEscape:
-                        ParseEnclosedEscape(c);
+                        ParseEscaped(c);
                         break;
+                    case ParseState.EndingRecord:
+                        if (c != '\n')
+                        {
+                            throw new FormatException("Unexpected character after carriage return");
+                        }
+                        EndRecord();
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
                 }
             }
 
