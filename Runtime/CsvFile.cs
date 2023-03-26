@@ -11,7 +11,7 @@ namespace FramePush.Csv
         public TextAsset source;
         public bool containsHeaders;
 
-        public string[][] Records { get; private set; }
+        public Record[] Records { get; private set; }
         public string[] Headers { get; private set; }
 
         private enum ParseState
@@ -24,17 +24,18 @@ namespace FramePush.Csv
             EndingRecord,
         }
 
-        public static List<string[]> Parse(string text)
+        public static List<Record> Parse(string text)
         {
-            var records = new List<string[]>();
-            List<string> record = null;
+            var records = new List<Record>();
+            List<string> fields = null;
             var field = new StringBuilder();
+            var futureHeaders = new Dictionary<string, int>();
 
             var state = ParseState.EndRecord;
 
             void EndField()
             {
-                record?.Add(field.ToString());
+                fields?.Add(field.ToString());
                 field.Clear();
                 state = ParseState.EndField;
             }
@@ -42,8 +43,8 @@ namespace FramePush.Csv
             void EndRecord()
             {
                 EndField();
-                records.Add(record?.ToArray());
-                record = null;
+                records.Add(new Record { Fields = fields?.ToArray(), HeaderMap = futureHeaders });
+                fields = null;
                 state = ParseState.EndRecord;
             }
 
@@ -111,7 +112,7 @@ namespace FramePush.Csv
                 switch (state)
                 {
                     case ParseState.EndRecord:
-                        record = new List<string>();
+                        fields = new List<string>();
                         CheckFieldStart(c);
                         break;
                     case ParseState.EndField:
@@ -146,31 +147,25 @@ namespace FramePush.Csv
             return records;
         }
 
-        public static (List<string[]> records, string[] headers) Parse(string text, bool containsHeaders)
+        public static (Record[] record, string[] headers) Parse(string text, bool containsHeaders)
         {
             var records = Parse(text);
 
             if (!containsHeaders)
-            {
-                return (records, null);
-            }
-
+                return (records.ToArray(), null);
+            
             var headers = records[0];
+            for (var i = 0; i < headers.Fields.Length; ++i)
+                headers.HeaderMap[headers[i]] = i;
+
             records.RemoveAt(0);
-            return (records, headers);
+
+            return (records.ToArray(), headers.Fields);
         }
 
         public void Parse()
         {
-            var rec = Parse(source.text);
-
-            if (containsHeaders)
-            {
-                Headers = rec[0];
-                rec.RemoveAt(0);
-            }
-
-            Records = rec.ToArray();
+            (Records, Headers) = Parse(source.text, containsHeaders);
         }
     }
 }
